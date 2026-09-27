@@ -3,7 +3,7 @@ import sys
 import pygame
 from sys import exit
 
-pygame.mixer.pre_init(44100, -16, 2, 512)         #fixes latency
+pygame.mixer.pre_init(44100, -16, 2, 512)         # fixes latency
 pygame.init()
 pygame.mixer.init()
 
@@ -13,14 +13,14 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("TXGJ 2026")
 clock = pygame.time.Clock()
 
-# Handles paths for both development and PyInstaller standalone builds
+# handles paths for both development and pyinstaller builds
 if getattr(sys, 'frozen', False):
     script_dir = sys._MEIPASS
 else:
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
 font_path = os.path.join(script_dir, "PixelPurl.ttf")
-font = pygame.font.Font(font_path, 20)
+font = pygame.font.Font(font_path, 25)
 big_font = pygame.font.Font(font_path, 36)
 title_font = pygame.font.Font(font_path, 48)
 white = (255, 255, 255)
@@ -31,7 +31,7 @@ bg_path = os.path.join(script_dir, "test bg.jpg")
 bg_image = pygame.image.load(bg_path).convert()
 bg_image = pygame.transform.scale(bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
-# Background music manager with fallbacks
+# background music manager with fallbacks
 current_track = None
 def play_bgm(filename):
     global current_track
@@ -44,13 +44,13 @@ def play_bgm(filename):
         pygame.mixer.music.play(-1)
         current_track = filename
 
-# Start title BGM (falls back to wake_up.mp3 if title_theme.mp3 doesn't exist yet)
+# start title bgm
 if os.path.exists(os.path.join(script_dir, "title_theme.mp3")):
     play_bgm("title_theme.mp3")
 else:
     play_bgm("wake_up.mp3")
 
-#sound effects placeholders
+# sound effects placeholders
 def load_sound(filename):
     path = os.path.join(script_dir, filename)
     if os.path.exists(path):
@@ -64,7 +64,7 @@ sfx_win = load_sound("win.wav")
 sfx_fail = load_sound("fail.wav")
 sfx_click = load_sound("click.wav")
 
-# Step/action sounds
+# step sounds
 sfx_steps = [
     load_sound("step_0.wav") or load_sound("step.wav"),
     load_sound("step_1.wav") or load_sound("step.wav"),
@@ -72,7 +72,7 @@ sfx_steps = [
     load_sound("step_3.wav") or load_sound("step.wav")
 ]
 
-#failure message generator (placeholders until finalized)
+# failure message generator
 def get_failure_message(seq):
     if seq[0] == "Lamp":
         return "DISASTER! You turned off the lamp first, stumbled in the pitch dark, and smashed the toaster!"
@@ -85,7 +85,7 @@ def get_failure_message(seq):
     else:
         return "DISASTER! The routine fell completely out of order and morning chaos took over!"
 
-#text wrapping helper for multi-line messages
+# text wrapping helper for multi-line messages
 def draw_wrapped_text(surface, text, font_obj, color, center_x, center_y, max_width=680, line_spacing=6):
     words = text.split(" ")
     lines = []
@@ -113,7 +113,7 @@ def draw_wrapped_text(surface, text, font_obj, color, center_x, center_y, max_wi
         surface.blit(surf, rect)
 
 
-#drag and drop mechanic
+# drag and drop mechanic
 slots = [50, 250, 450, 650]
 items = [
     {"text": "Toaster", "slot": 0},
@@ -124,26 +124,51 @@ items = [
 dragging_index = None
 offset_x = 0
 
-#game state machine
+# game state machine
 game_state = "TITLE"
 current_step = 0
 step_duration = 1200
 step_start_time = 0
 
-#game logic
+# stores previous state and elapsed time so pausing during playback stays accurate
+paused_previous_state = "EDITING"
+step_elapsed_before_pause = 0
+
+# game logic
 winning_sequence = ["Toothbrush", "Toaster", "Shoes", "Lamp"]
 game_message = ""
 
-#title screen buttons
-start_button_rect = pygame.Rect(320, 340, 160, 50)
+# title screen buttons
+start_button_rect = pygame.Rect(320, 310, 160, 48)
 start_button_color = (60, 160, 240)
 start_button_hover = (90, 180, 255)
 
-tutorial_button_rect = pygame.Rect(320, 405, 160, 50)
+tutorial_button_rect = pygame.Rect(320, 370, 160, 48)
 tutorial_button_color = (130, 90, 210)
 tutorial_button_hover = (155, 115, 235)
 
-#tutorial slides and controls
+title_exit_rect = pygame.Rect(320, 430, 160, 48)
+title_exit_color = (200, 60, 60)
+title_exit_hover = (230, 80, 80)
+
+# pause menu buttons
+pause_resume_rect = pygame.Rect(320, 210, 160, 48)
+pause_resume_color = (60, 160, 240)
+pause_resume_hover = (90, 180, 255)
+
+pause_menu_rect = pygame.Rect(320, 270, 160, 48)
+pause_menu_color = (80, 140, 180)
+pause_menu_hover = (100, 165, 210)
+
+pause_tut_rect = pygame.Rect(320, 330, 160, 48)
+pause_tut_color = (130, 90, 210)
+pause_tut_hover = (155, 115, 235)
+
+pause_exit_rect = pygame.Rect(320, 390, 160, 48)
+pause_exit_color = (200, 60, 60)
+pause_exit_hover = (230, 80, 80)
+
+# tutorial slides and controls
 tutorial_slides = [
     {
         "title": "MORNING DISASTER!",
@@ -154,9 +179,14 @@ tutorial_slides = [
         "body": "Drag and swap items along the bottom tray to rearrange the order of tasks. Once you are confident in your plan, hit GO to trigger the sequence."
     },
     {
+            "title": "PAUSE & CONTROLS",
+            "body": "Press SPACEBAR at any time during planning or playback to pause the game. You can resume, revisit this tutorial, jump to the title menu, or exit."
+    },
+    {
         "title": "HOW TO WIN",
         "body": "Order conflicts cause hilarious failures! Brush your teeth, toast your breakfast, put shoes on, and switch off the lamp on your way out."
     }
+    
 ]
 current_slide = 0
 
@@ -164,12 +194,12 @@ tut_prev_rect = pygame.Rect(180, 440, 110, 45)
 tut_next_rect = pygame.Rect(510, 440, 110, 45)
 tut_back_rect = pygame.Rect(30, 30, 90, 35)
 
-#go button initialization
+# go button initialization
 go_button_rect = pygame.Rect(450, 45, 100, 50)
 go_button_color = (50, 200, 50)
 go_button_hover_color = (70, 230, 70)
 
-#reset button initialization
+# reset button initialization
 reset_button_rect = pygame.Rect(350, 360, 100, 50)
 reset_button_color = (200, 100, 50)
 reset_button_hover_color = (230, 125, 75)
@@ -179,10 +209,12 @@ running = True
 while running:
     mouse_pos = pygame.mouse.get_pos()
 
-    #cursor state updating
+    # cursor state updating
     if dragging_index is not None:
         pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_SIZEALL)
-    elif game_state == "TITLE" and (start_button_rect.collidepoint(mouse_pos) or tutorial_button_rect.collidepoint(mouse_pos)):
+    elif game_state == "TITLE" and (start_button_rect.collidepoint(mouse_pos) or tutorial_button_rect.collidepoint(mouse_pos) or title_exit_rect.collidepoint(mouse_pos)):
+        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+    elif game_state == "PAUSED" and (pause_resume_rect.collidepoint(mouse_pos) or pause_menu_rect.collidepoint(mouse_pos) or pause_tut_rect.collidepoint(mouse_pos) or pause_exit_rect.collidepoint(mouse_pos)):
         pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
     elif game_state == "TUTORIAL" and (tut_prev_rect.collidepoint(mouse_pos) or tut_next_rect.collidepoint(mouse_pos) or tut_back_rect.collidepoint(mouse_pos)):
         pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
@@ -195,7 +227,7 @@ while running:
     else:
         pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
-    #target slot analyzing
+    # target slot analyzing
     target_slot = None
     if game_state == "EDITING" and dragging_index is not None:
         dragged_x = mouse_pos[0] + offset_x
@@ -206,9 +238,29 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
+        # toggle pause menu with spacebar from gameplay states
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                if game_state in ["EDITING", "PLAYING", "RESULT"]:
+                    if sfx_click:
+                        sfx_click.play()
+                    paused_previous_state = game_state
+                    if game_state == "PLAYING":
+                        step_elapsed_before_pause = pygame.time.get_ticks() - step_start_time
+                    pygame.mixer.music.pause()
+                    game_state = "PAUSED"
+                elif game_state == "PAUSED":
+                    # unpauses back to where you were
+                    if sfx_click:
+                        sfx_click.play()
+                    pygame.mixer.music.unpause()
+                    if paused_previous_state == "PLAYING":
+                        step_start_time = pygame.time.get_ticks() - step_elapsed_before_pause
+                    game_state = paused_previous_state
+
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
-                #title screen clicks
+                # title screen clicks
                 if game_state == "TITLE":
                     if start_button_rect.collidepoint(event.pos):
                         if sfx_click:
@@ -220,8 +272,45 @@ while running:
                             sfx_click.play()
                         current_slide = 0
                         game_state = "TUTORIAL"
+                    elif title_exit_rect.collidepoint(event.pos):
+                        if sfx_click:
+                            sfx_click.play()
+                        running = False
 
-                #tutorial navigation clicks
+                # pause menu clicks
+                elif game_state == "PAUSED":
+                    if pause_resume_rect.collidepoint(event.pos):
+                        if sfx_click:
+                            sfx_click.play()
+                        pygame.mixer.music.unpause()
+                        if paused_previous_state == "PLAYING":
+                            step_start_time = pygame.time.get_ticks() - step_elapsed_before_pause
+                        game_state = paused_previous_state
+
+                    elif pause_menu_rect.collidepoint(event.pos):
+                        if sfx_click:
+                            sfx_click.play()
+                        # reset gameplay variables when returning to title
+                        game_state = "TITLE"
+                        current_step = 0
+                        game_message = ""
+                        if os.path.exists(os.path.join(script_dir, "title_theme.mp3")):
+                            play_bgm("title_theme.mp3")
+                        else:
+                            play_bgm("wake_up.mp3")
+
+                    elif pause_tut_rect.collidepoint(event.pos):
+                        if sfx_click:
+                            sfx_click.play()
+                        current_slide = 0
+                        game_state = "TUTORIAL"
+
+                    elif pause_exit_rect.collidepoint(event.pos):
+                        if sfx_click:
+                            sfx_click.play()
+                        running = False
+
+                # tutorial navigation clicks
                 elif game_state == "TUTORIAL":
                     if tut_back_rect.collidepoint(event.pos):
                         if sfx_click:
@@ -238,11 +327,10 @@ while running:
                         if current_slide < len(tutorial_slides) - 1:
                             current_slide += 1
                         else:
-                            # Final slide "PLAY!" transitions to gameplay
                             play_bgm("wake_up.mp3")
                             game_state = "EDITING"
 
-                #go button check
+                # go button check
                 elif game_state == "EDITING" and go_button_rect.collidepoint(event.pos):
                     if sfx_click:
                         sfx_click.play()
@@ -258,7 +346,7 @@ while running:
                     if sfx_steps[0]:
                         sfx_steps[0].play()
 
-                #reset button check
+                # reset button check
                 elif game_state == "RESULT" and reset_button_rect.collidepoint(event.pos):
                     if sfx_click:
                         sfx_click.play()
@@ -266,7 +354,7 @@ while running:
                     game_message = ""
                     current_step = 0
 
-                #drag box check
+                # drag box check
                 elif game_state == "EDITING":
                     for i, item in enumerate(items):
                         box_x = slots[item["slot"]]
@@ -318,36 +406,40 @@ while running:
                     if sfx_fail:
                         sfx_fail.play()
 
-    # --- RENDERING SECTION ---
+    # --- rendering section ---
     if game_state == "TITLE":
         screen.blit(bg_image, (0, 0))
 
-        # Semi-transparent dark overlay for title screen readability
+        # dark overlay
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 140))
         screen.blit(overlay, (0, 0))
 
         title_surf = title_font.render("CHAIN REACTION", True, white)
-        title_rect = title_surf.get_rect(center=(SCREEN_WIDTH // 2, 180))
+        title_rect = title_surf.get_rect(center=(SCREEN_WIDTH // 2, 170))
         screen.blit(title_surf, title_rect)
 
         sub_surf = font.render("A Morning Routine Simulator", True, (210, 210, 210))
-        sub_rect = sub_surf.get_rect(center=(SCREEN_WIDTH // 2, 235))
+        sub_rect = sub_surf.get_rect(center=(SCREEN_WIDTH // 2, 225))
         screen.blit(sub_surf, sub_rect)
 
-        # Start button
+        # start button
         active_start_color = start_button_hover if start_button_rect.collidepoint(mouse_pos) else start_button_color
         pygame.draw.rect(screen, active_start_color, start_button_rect, border_radius=10)
-        start_text = big_font.render("START", True, white)
-        start_text_rect = start_text.get_rect(center=start_button_rect.center)
-        screen.blit(start_text, start_text_rect)
+        start_text = font.render("START", True, white)
+        screen.blit(start_text, start_text.get_rect(center=start_button_rect.center))
 
-        # Tutorial button
+        # tutorial button
         active_tut_color = tutorial_button_hover if tutorial_button_rect.collidepoint(mouse_pos) else tutorial_button_color
         pygame.draw.rect(screen, active_tut_color, tutorial_button_rect, border_radius=10)
         tut_btn_text = font.render("TUTORIAL", True, white)
-        tut_btn_rect = tut_btn_text.get_rect(center=tutorial_button_rect.center)
-        screen.blit(tut_btn_text, tut_btn_rect)
+        screen.blit(tut_btn_text, tut_btn_text.get_rect(center=tutorial_button_rect.center))
+
+        # exit button
+        active_exit_col = title_exit_hover if title_exit_rect.collidepoint(mouse_pos) else title_exit_color
+        pygame.draw.rect(screen, active_exit_col, title_exit_rect, border_radius=10)
+        exit_btn_text = font.render("EXIT", True, white)
+        screen.blit(exit_btn_text, exit_btn_text.get_rect(center=title_exit_rect.center))
 
     elif game_state == "TUTORIAL":
         screen.blit(bg_image, (0, 0))
@@ -356,38 +448,31 @@ while running:
         overlay.fill((0, 0, 0, 170))
         screen.blit(overlay, (0, 0))
 
-        # Back to Title button
         back_col = (110, 110, 110) if tut_back_rect.collidepoint(mouse_pos) else (80, 80, 80)
         pygame.draw.rect(screen, back_col, tut_back_rect, border_radius=6)
         back_text = font.render("< TITLE", True, white)
         screen.blit(back_text, back_text.get_rect(center=tut_back_rect.center))
 
-        # Tutorial Card Panel
         card_rect = pygame.Rect(120, 90, 560, 420)
         pygame.draw.rect(screen, (32, 34, 42), card_rect, border_radius=14)
         pygame.draw.rect(screen, (100, 120, 150), card_rect, 2, border_radius=14)
 
-        # Slide Page indicator
         page_str = f"Slide {current_slide + 1} of {len(tutorial_slides)}"
         page_surf = font.render(page_str, True, (150, 160, 175))
         screen.blit(page_surf, page_surf.get_rect(center=(SCREEN_WIDTH // 2, 120)))
 
-        # Slide Header
         slide_data = tutorial_slides[current_slide]
         slide_title = big_font.render(slide_data["title"], True, (255, 230, 80))
         screen.blit(slide_title, slide_title.get_rect(center=(SCREEN_WIDTH // 2, 165)))
 
-        # Slide Body Text
         draw_wrapped_text(screen, slide_data["body"], font, white, SCREEN_WIDTH // 2, 275, max_width=480, line_spacing=8)
 
-        # Previous button
         if current_slide > 0:
             p_col = (100, 100, 110) if tut_prev_rect.collidepoint(mouse_pos) else (70, 70, 80)
             pygame.draw.rect(screen, p_col, tut_prev_rect, border_radius=8)
             p_text = font.render("PREV", True, white)
             screen.blit(p_text, p_text.get_rect(center=tut_prev_rect.center))
 
-        # Next / Play button
         is_last_slide = (current_slide == len(tutorial_slides) - 1)
         next_label = "PLAY!" if is_last_slide else "NEXT"
         next_base_col = (50, 180, 80) if is_last_slide else (60, 140, 230)
@@ -396,6 +481,44 @@ while running:
         pygame.draw.rect(screen, n_col, tut_next_rect, border_radius=8)
         n_text = font.render(next_label, True, white)
         screen.blit(n_text, n_text.get_rect(center=tut_next_rect.center))
+
+    elif game_state == "PAUSED":
+        screen.blit(bg_image, (0, 0))
+
+        # dim overlay behind pause menu
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        screen.blit(overlay, (0, 0))
+
+        pause_title = big_font.render("GAME PAUSED", True, white)
+        screen.blit(pause_title, pause_title.get_rect(center=(SCREEN_WIDTH // 2, 130)))
+
+        pause_hint = font.render("press SPACE to resume", True, (170, 170, 170))
+        screen.blit(pause_hint, pause_hint.get_rect(center=(SCREEN_WIDTH // 2, 165)))
+
+        # resume button
+        r_col = pause_resume_hover if pause_resume_rect.collidepoint(mouse_pos) else pause_resume_color
+        pygame.draw.rect(screen, r_col, pause_resume_rect, border_radius=8)
+        r_text = font.render("RESUME", True, white)
+        screen.blit(r_text, r_text.get_rect(center=pause_resume_rect.center))
+
+        # menu button
+        m_col = pause_menu_hover if pause_menu_rect.collidepoint(mouse_pos) else pause_menu_color
+        pygame.draw.rect(screen, m_col, pause_menu_rect, border_radius=8)
+        m_text = font.render("MENU", True, white)
+        screen.blit(m_text, m_text.get_rect(center=pause_menu_rect.center))
+
+        # tutorial button
+        t_col = pause_tut_hover if pause_tut_rect.collidepoint(mouse_pos) else pause_tut_color
+        pygame.draw.rect(screen, t_col, pause_tut_rect, border_radius=8)
+        t_text = font.render("TUTORIAL", True, white)
+        screen.blit(t_text, t_text.get_rect(center=pause_tut_rect.center))
+
+        # exit button
+        e_col = pause_exit_hover if pause_exit_rect.collidepoint(mouse_pos) else pause_exit_color
+        pygame.draw.rect(screen, e_col, pause_exit_rect, border_radius=8)
+        e_text = font.render("EXIT", True, white)
+        screen.blit(e_text, e_text.get_rect(center=pause_exit_rect.center))
 
     elif game_state == "RESULT":
         screen.fill(white)
