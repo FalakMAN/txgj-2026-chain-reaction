@@ -1,9 +1,10 @@
 import os
 import sys
+import math
 import pygame
 from sys import exit
 
-pygame.mixer.pre_init(44100, -16, 2, 512)         # fixes latency
+pygame.mixer.pre_init(44100, -16, 2, 512)         # fixes latency[cite: 2]
 pygame.init()
 pygame.mixer.init()
 
@@ -13,14 +14,14 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("TXGJ 2026")
 clock = pygame.time.Clock()
 
-# handles paths for both development and pyinstaller builds
+# handles paths for both development and pyinstaller builds[cite: 2]
 if getattr(sys, 'frozen', False):
     script_dir = sys._MEIPASS
 else:
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
 font_path = os.path.join(script_dir, "PixelPurl.ttf")
-font = pygame.font.Font(font_path, 25)
+font = pygame.font.Font(font_path, 20)
 big_font = pygame.font.Font(font_path, 36)
 title_font = pygame.font.Font(font_path, 48)
 white = (255, 255, 255)
@@ -31,7 +32,7 @@ bg_path = os.path.join(script_dir, "test bg.jpg")
 bg_image = pygame.image.load(bg_path).convert()
 bg_image = pygame.transform.scale(bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
-# background music manager with fallbacks
+# background music manager with fallbacks[cite: 2]
 current_track = None
 def play_bgm(filename):
     global current_track
@@ -44,13 +45,13 @@ def play_bgm(filename):
         pygame.mixer.music.play(-1)
         current_track = filename
 
-# start title bgm
+# start title bgm[cite: 2]
 if os.path.exists(os.path.join(script_dir, "title_theme.mp3")):
     play_bgm("title_theme.mp3")
 else:
     play_bgm("wake_up.mp3")
 
-# sound effects placeholders
+# sound effects placeholders[cite: 2]
 def load_sound(filename):
     path = os.path.join(script_dir, filename)
     if os.path.exists(path):
@@ -64,7 +65,7 @@ sfx_win = load_sound("win.wav")
 sfx_fail = load_sound("fail.wav")
 sfx_click = load_sound("click.wav")
 
-# step sounds
+# step sounds[cite: 2]
 sfx_steps = [
     load_sound("step_0.wav") or load_sound("step.wav"),
     load_sound("step_1.wav") or load_sound("step.wav"),
@@ -72,7 +73,7 @@ sfx_steps = [
     load_sound("step_3.wav") or load_sound("step.wav")
 ]
 
-# failure message generator
+# failure message generator[cite: 2]
 def get_failure_message(seq):
     if seq[0] == "Lamp":
         return "DISASTER! You turned off the lamp first, stumbled in the pitch dark, and smashed the toaster!"
@@ -85,7 +86,7 @@ def get_failure_message(seq):
     else:
         return "DISASTER! The routine fell completely out of order and morning chaos took over!"
 
-# text wrapping helper for multi-line messages
+# text wrapping helper for multi-line messages[cite: 2]
 def draw_wrapped_text(surface, text, font_obj, color, center_x, center_y, max_width=680, line_spacing=6):
     words = text.split(" ")
     lines = []
@@ -113,7 +114,7 @@ def draw_wrapped_text(surface, text, font_obj, color, center_x, center_y, max_wi
         surface.blit(surf, rect)
 
 
-# drag and drop mechanic
+# drag and drop mechanic[cite: 2]
 slots = [50, 250, 450, 650]
 items = [
     {"text": "Toaster", "slot": 0},
@@ -124,7 +125,7 @@ items = [
 dragging_index = None
 offset_x = 0
 
-# game state machine
+# game state machine[cite: 2]
 game_state = "TITLE"
 current_step = 0
 step_duration = 1200
@@ -134,7 +135,7 @@ step_start_time = 0
 paused_previous_state = "EDITING"
 step_elapsed_before_pause = 0
 
-# game logic
+# game logic[cite: 2]
 winning_sequence = ["Toothbrush", "Toaster", "Shoes", "Lamp"]
 game_message = ""
 
@@ -179,14 +180,13 @@ tutorial_slides = [
         "body": "Drag and swap items along the bottom tray to rearrange the order of tasks. Once you are confident in your plan, hit GO to trigger the sequence."
     },
     {
-            "title": "PAUSE & CONTROLS",
-            "body": "Press SPACEBAR at any time during planning or playback to pause the game. You can resume, revisit this tutorial, jump to the title menu, or exit."
+        "title": "PAUSE & CONTROLS",
+        "body": "Press SPACEBAR at any time during planning or playback to pause the game. You can resume, revisit this tutorial, jump to the title menu, or exit."
     },
     {
         "title": "HOW TO WIN",
         "body": "Order conflicts cause hilarious failures! Brush your teeth, toast your breakfast, put shoes on, and switch off the lamp on your way out."
     }
-    
 ]
 current_slide = 0
 
@@ -194,12 +194,12 @@ tut_prev_rect = pygame.Rect(180, 440, 110, 45)
 tut_next_rect = pygame.Rect(510, 440, 110, 45)
 tut_back_rect = pygame.Rect(30, 30, 90, 35)
 
-# go button initialization
+# go button initialization[cite: 2]
 go_button_rect = pygame.Rect(450, 45, 100, 50)
 go_button_color = (50, 200, 50)
 go_button_hover_color = (70, 230, 70)
 
-# reset button initialization
+# reset button initialization[cite: 2]
 reset_button_rect = pygame.Rect(350, 360, 100, 50)
 reset_button_color = (200, 100, 50)
 reset_button_hover_color = (230, 125, 75)
@@ -209,7 +209,7 @@ running = True
 while running:
     mouse_pos = pygame.mouse.get_pos()
 
-    # cursor state updating
+    # cursor state updating[cite: 2]
     if dragging_index is not None:
         pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_SIZEALL)
     elif game_state == "TITLE" and (start_button_rect.collidepoint(mouse_pos) or tutorial_button_rect.collidepoint(mouse_pos) or title_exit_rect.collidepoint(mouse_pos)):
@@ -227,7 +227,7 @@ while running:
     else:
         pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
-    # target slot analyzing
+    # target slot analyzing[cite: 2]
     target_slot = None
     if game_state == "EDITING" and dragging_index is not None:
         dragged_x = mouse_pos[0] + offset_x
@@ -330,7 +330,7 @@ while running:
                             play_bgm("wake_up.mp3")
                             game_state = "EDITING"
 
-                # go button check
+                # go button check[cite: 2]
                 elif game_state == "EDITING" and go_button_rect.collidepoint(event.pos):
                     if sfx_click:
                         sfx_click.play()
@@ -346,7 +346,7 @@ while running:
                     if sfx_steps[0]:
                         sfx_steps[0].play()
 
-                # reset button check
+                # reset button check[cite: 2]
                 elif game_state == "RESULT" and reset_button_rect.collidepoint(event.pos):
                     if sfx_click:
                         sfx_click.play()
@@ -354,7 +354,7 @@ while running:
                     game_message = ""
                     current_step = 0
 
-                # drag box check
+                # drag box check[cite: 2]
                 elif game_state == "EDITING":
                     for i, item in enumerate(items):
                         box_x = slots[item["slot"]]
@@ -384,10 +384,14 @@ while running:
                 if sfx_snap:
                     sfx_snap.play()
 
+    # timing calculation for step transitions and animation progress
+    step_progress = 0.0
     if game_state == "PLAYING":
         now = pygame.time.get_ticks()
+        step_elapsed = now - step_start_time
+        step_progress = min(1.0, max(0.0, step_elapsed / step_duration))
 
-        if now - step_start_time >= step_duration:
+        if step_elapsed >= step_duration:
             step_start_time = now
             current_step += 1
 
@@ -547,20 +551,43 @@ while running:
             go_text_rect = go_text.get_rect(center = go_button_rect.center)
             screen.blit(go_text, go_text_rect)
 
+        # animated energy beam connecting the active step to the next step
+        if game_state == "PLAYING" and current_step < len(slots) - 1:
+            start_pt = (slots[current_step] + 100, 545)
+            end_pt = (slots[current_step + 1], 545)
+
+            # base connection line
+            pygame.draw.line(screen, (80, 80, 80), start_pt, end_pt, 3)
+
+            # traveling energy pulse
+            beam_dist = end_pt[0] - start_pt[0]
+            pulse_x = start_pt[0] + (beam_dist * step_progress)
+            pygame.draw.circle(screen, (255, 235, 90), (int(pulse_x), 545), 6)
+            pygame.draw.circle(screen, (255, 255, 255), (int(pulse_x), 545), 3)
+
         for i, slot_x in enumerate(slots):
             slot_rect = pygame.Rect(slot_x, 510, 100, 70)
-            pygame.draw.rect(screen, box_color, slot_rect, 1, 10)
 
+            # fills slot solid yellow when active so jumping box looks grounded
             if game_state == "PLAYING" and i == current_step:
-                highlight_rect = slot_rect.inflate(8, 8)
-                pygame.draw.rect(screen, (255, 230, 80), highlight_rect, 4, 12)
+                pygame.draw.rect(screen, (255, 230, 80), slot_rect, border_radius=10)
+                pygame.draw.rect(screen, (220, 190, 50), slot_rect, 2, border_radius=10)
+            else:
+                pygame.draw.rect(screen, box_color, slot_rect, 1, 10)
 
         for i, item in enumerate(items):
             if i == dragging_index:
                 continue
 
             draw_x = slots[item["slot"]]
-            rect = pygame.Rect(draw_x, 510, 100, 70)
+            draw_y = 510
+
+            # adds vertical pop when item is triggered
+            if game_state == "PLAYING" and item["slot"] == current_step:
+                bounce_offset = math.sin(step_progress * math.pi) * 14
+                draw_y -= int(bounce_offset)
+
+            rect = pygame.Rect(draw_x, draw_y, 100, 70)
 
             pygame.draw.rect(screen, box_color, rect, 1, 10)
             pygame.draw.rect(screen, (100, 100, 100), rect, 1, 10)
