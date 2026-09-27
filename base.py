@@ -13,15 +13,16 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("TXGJ 2026")
 clock = pygame.time.Clock()
 
-#paths
+# Handles paths for both development and PyInstaller standalone builds
 if getattr(sys, 'frozen', False):
     script_dir = sys._MEIPASS
 else:
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
-font_path = os.path.join(script_dir, "Pixel.otf")
+font_path = os.path.join(script_dir, "PixelPurl.ttf")
 font = pygame.font.Font(font_path, 20)
 big_font = pygame.font.Font(font_path, 36)
+title_font = pygame.font.Font(font_path, 48)
 white = (255, 255, 255)
 dark_gray = (40, 40, 40)
 box_color = (235, 234, 222)
@@ -30,12 +31,24 @@ bg_path = os.path.join(script_dir, "test bg.jpg")
 bg_image = pygame.image.load(bg_path).convert()
 bg_image = pygame.transform.scale(bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
-#background music
-bgm_path = os.path.join(script_dir, "wake_up.mp3")  # Change filename to match your audio file
-if os.path.exists(bgm_path):
-    pygame.mixer.music.load(bgm_path)
-    pygame.mixer.music.set_volume(0.5)
-    pygame.mixer.music.play(-1)
+# Background music manager with fallbacks
+current_track = None
+def play_bgm(filename):
+    global current_track
+    if filename == current_track:
+        return
+    path = os.path.join(script_dir, filename)
+    if os.path.exists(path):
+        pygame.mixer.music.load(path)
+        pygame.mixer.music.set_volume(0.5)
+        pygame.mixer.music.play(-1)
+        current_track = filename
+
+# Start title BGM (falls back to wake_up.mp3 if title_theme.mp3 doesn't exist yet)
+if os.path.exists(os.path.join(script_dir, "title_theme.mp3")):
+    play_bgm("title_theme.mp3")
+else:
+    play_bgm("wake_up.mp3")
 
 #sound effects placeholders
 def load_sound(filename):
@@ -51,6 +64,7 @@ sfx_win = load_sound("win.wav")
 sfx_fail = load_sound("fail.wav")
 sfx_click = load_sound("click.wav")
 
+# Step/action sounds
 sfx_steps = [
     load_sound("step_0.wav") or load_sound("step.wav"),
     load_sound("step_1.wav") or load_sound("step.wav"),
@@ -67,11 +81,11 @@ def get_failure_message(seq):
     elif seq[-1] == "Toaster":
         return "DISASTER! You walked out the front door and left the toaster running—the kitchen is on fire!"
     elif seq.index("Toothbrush") > seq.index("Toaster"):
-        return "DISASTER! You brushed your teeth immediately after eating scalding toast—total sensory overload!"
+        return "DISASTER! You brushed your teeth immediately after eating scalding toast; total sensory overload!"
     else:
         return "DISASTER! The routine fell completely out of order and morning chaos took over!"
 
-#text wrapping for multi-line messages
+#text wrapping helper for multi-line messages
 def draw_wrapped_text(surface, text, font_obj, color, center_x, center_y, max_width=680, line_spacing=6):
     words = text.split(" ")
     lines = []
@@ -89,7 +103,6 @@ def draw_wrapped_text(surface, text, font_obj, color, center_x, center_y, max_wi
     if current_line:
         lines.append(" ".join(current_line))
 
-    #calculate total height to center all lines vertically
     line_surfs = [font_obj.render(line, True, color) for line in lines]
     line_height = font_obj.get_linesize() + line_spacing
     total_height = len(line_surfs) * line_height - line_spacing
@@ -111,15 +124,45 @@ items = [
 dragging_index = None
 offset_x = 0
 
-#game state
-game_state = "EDITING"
+#game state machine
+game_state = "TITLE"
 current_step = 0
-step_duration = 1600
+step_duration = 1200
 step_start_time = 0
 
 #game logic
 winning_sequence = ["Toothbrush", "Toaster", "Shoes", "Lamp"]
 game_message = ""
+
+#title screen buttons
+start_button_rect = pygame.Rect(320, 340, 160, 50)
+start_button_color = (60, 160, 240)
+start_button_hover = (90, 180, 255)
+
+tutorial_button_rect = pygame.Rect(320, 405, 160, 50)
+tutorial_button_color = (130, 90, 210)
+tutorial_button_hover = (155, 115, 235)
+
+#tutorial slides and controls
+tutorial_slides = [
+    {
+        "title": "MORNING DISASTER!",
+        "body": "Your alarm clock triggered a wild chain reaction! Every appliance in the apartment is set to trigger in sequence. Can you leave for class in one piece?"
+    },
+    {
+        "title": "HOW TO PLAY",
+        "body": "Drag and swap items along the bottom tray to rearrange the order of tasks. Once you are confident in your plan, hit GO to trigger the sequence."
+    },
+    {
+        "title": "HOW TO WIN",
+        "body": "Order conflicts cause hilarious failures! Brush your teeth, toast your breakfast, put shoes on, and switch off the lamp on your way out."
+    }
+]
+current_slide = 0
+
+tut_prev_rect = pygame.Rect(180, 440, 110, 45)
+tut_next_rect = pygame.Rect(510, 440, 110, 45)
+tut_back_rect = pygame.Rect(30, 30, 90, 35)
 
 #go button initialization
 go_button_rect = pygame.Rect(450, 45, 100, 50)
@@ -139,6 +182,10 @@ while running:
     #cursor state updating
     if dragging_index is not None:
         pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_SIZEALL)
+    elif game_state == "TITLE" and (start_button_rect.collidepoint(mouse_pos) or tutorial_button_rect.collidepoint(mouse_pos)):
+        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+    elif game_state == "TUTORIAL" and (tut_prev_rect.collidepoint(mouse_pos) or tut_next_rect.collidepoint(mouse_pos) or tut_back_rect.collidepoint(mouse_pos)):
+        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
     elif game_state == "EDITING" and go_button_rect.collidepoint(mouse_pos):
         pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
     elif game_state == "RESULT" and reset_button_rect.collidepoint(mouse_pos):
@@ -161,21 +208,53 @@ while running:
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
+                #title screen clicks
+                if game_state == "TITLE":
+                    if start_button_rect.collidepoint(event.pos):
+                        if sfx_click:
+                            sfx_click.play()
+                        play_bgm("wake_up.mp3")
+                        game_state = "EDITING"
+                    elif tutorial_button_rect.collidepoint(event.pos):
+                        if sfx_click:
+                            sfx_click.play()
+                        current_slide = 0
+                        game_state = "TUTORIAL"
+
+                #tutorial navigation clicks
+                elif game_state == "TUTORIAL":
+                    if tut_back_rect.collidepoint(event.pos):
+                        if sfx_click:
+                            sfx_click.play()
+                        game_state = "TITLE"
+                    elif tut_prev_rect.collidepoint(event.pos):
+                        if current_slide > 0:
+                            if sfx_click:
+                                sfx_click.play()
+                            current_slide -= 1
+                    elif tut_next_rect.collidepoint(event.pos):
+                        if sfx_click:
+                            sfx_click.play()
+                        if current_slide < len(tutorial_slides) - 1:
+                            current_slide += 1
+                        else:
+                            # Final slide "PLAY!" transitions to gameplay
+                            play_bgm("wake_up.mp3")
+                            game_state = "EDITING"
+
                 #go button check
-                if game_state == "EDITING" and go_button_rect.collidepoint(event.pos):
+                elif game_state == "EDITING" and go_button_rect.collidepoint(event.pos):
                     if sfx_click:
                         sfx_click.play()
                     sorted_items = sorted(items, key = lambda x: x["slot"])
                     player_sequence = [item["text"] for item in sorted_items]
                     print("Player's sequence: ", player_sequence)
 
-                    #start playback
                     game_state = "PLAYING"
                     current_step = 0
                     step_start_time = pygame.time.get_ticks()
                     game_message = ""
 
-                    #play first step sound immediately on start
                     if sfx_steps[0]:
                         sfx_steps[0].play()
 
@@ -204,10 +283,8 @@ while running:
                 dragged_x = mouse_pos[0] + offset_x
                 dragged_center = dragged_x + 50
 
-                #finding closest slot
                 closest_slot = min(range(len(slots)), key = lambda i: abs(slots[i] - dragged_center))
 
-                #box swap
                 for i, item in enumerate(items):
                     if i != dragging_index and item["slot"] == closest_slot:
                         item["slot"] = items[dragging_index]["slot"]
@@ -216,24 +293,20 @@ while running:
                 items[dragging_index]["slot"] = closest_slot
                 dragging_index = None
 
-                #play snap sound on drop
                 if sfx_snap:
                     sfx_snap.play()
 
     if game_state == "PLAYING":
         now = pygame.time.get_ticks()
 
-        #check time elapsed
         if now - step_start_time >= step_duration:
             step_start_time = now
             current_step += 1
 
-            #play sound for the new step if we haven't reached the end
             if current_step < len(slots):
                 if sfx_steps[current_step]:
                     sfx_steps[current_step].play()
 
-            #after 4 steps
             if current_step >= len(slots):
                 game_state = "RESULT"
                 if player_sequence == winning_sequence:
@@ -245,21 +318,96 @@ while running:
                     if sfx_fail:
                         sfx_fail.play()
 
-    #drawing end screen or gameplay
-    if game_state == "RESULT":
+    # --- RENDERING SECTION ---
+    if game_state == "TITLE":
+        screen.blit(bg_image, (0, 0))
+
+        # Semi-transparent dark overlay for title screen readability
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 140))
+        screen.blit(overlay, (0, 0))
+
+        title_surf = title_font.render("CHAIN REACTION", True, white)
+        title_rect = title_surf.get_rect(center=(SCREEN_WIDTH // 2, 180))
+        screen.blit(title_surf, title_rect)
+
+        sub_surf = font.render("A Morning Routine Simulator", True, (210, 210, 210))
+        sub_rect = sub_surf.get_rect(center=(SCREEN_WIDTH // 2, 235))
+        screen.blit(sub_surf, sub_rect)
+
+        # Start button
+        active_start_color = start_button_hover if start_button_rect.collidepoint(mouse_pos) else start_button_color
+        pygame.draw.rect(screen, active_start_color, start_button_rect, border_radius=10)
+        start_text = big_font.render("START", True, white)
+        start_text_rect = start_text.get_rect(center=start_button_rect.center)
+        screen.blit(start_text, start_text_rect)
+
+        # Tutorial button
+        active_tut_color = tutorial_button_hover if tutorial_button_rect.collidepoint(mouse_pos) else tutorial_button_color
+        pygame.draw.rect(screen, active_tut_color, tutorial_button_rect, border_radius=10)
+        tut_btn_text = font.render("TUTORIAL", True, white)
+        tut_btn_rect = tut_btn_text.get_rect(center=tutorial_button_rect.center)
+        screen.blit(tut_btn_text, tut_btn_rect)
+
+    elif game_state == "TUTORIAL":
+        screen.blit(bg_image, (0, 0))
+
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 170))
+        screen.blit(overlay, (0, 0))
+
+        # Back to Title button
+        back_col = (110, 110, 110) if tut_back_rect.collidepoint(mouse_pos) else (80, 80, 80)
+        pygame.draw.rect(screen, back_col, tut_back_rect, border_radius=6)
+        back_text = font.render("< TITLE", True, white)
+        screen.blit(back_text, back_text.get_rect(center=tut_back_rect.center))
+
+        # Tutorial Card Panel
+        card_rect = pygame.Rect(120, 90, 560, 420)
+        pygame.draw.rect(screen, (32, 34, 42), card_rect, border_radius=14)
+        pygame.draw.rect(screen, (100, 120, 150), card_rect, 2, border_radius=14)
+
+        # Slide Page indicator
+        page_str = f"Slide {current_slide + 1} of {len(tutorial_slides)}"
+        page_surf = font.render(page_str, True, (150, 160, 175))
+        screen.blit(page_surf, page_surf.get_rect(center=(SCREEN_WIDTH // 2, 120)))
+
+        # Slide Header
+        slide_data = tutorial_slides[current_slide]
+        slide_title = big_font.render(slide_data["title"], True, (255, 230, 80))
+        screen.blit(slide_title, slide_title.get_rect(center=(SCREEN_WIDTH // 2, 165)))
+
+        # Slide Body Text
+        draw_wrapped_text(screen, slide_data["body"], font, white, SCREEN_WIDTH // 2, 275, max_width=480, line_spacing=8)
+
+        # Previous button
+        if current_slide > 0:
+            p_col = (100, 100, 110) if tut_prev_rect.collidepoint(mouse_pos) else (70, 70, 80)
+            pygame.draw.rect(screen, p_col, tut_prev_rect, border_radius=8)
+            p_text = font.render("PREV", True, white)
+            screen.blit(p_text, p_text.get_rect(center=tut_prev_rect.center))
+
+        # Next / Play button
+        is_last_slide = (current_slide == len(tutorial_slides) - 1)
+        next_label = "PLAY!" if is_last_slide else "NEXT"
+        next_base_col = (50, 180, 80) if is_last_slide else (60, 140, 230)
+        next_hov_col = (70, 210, 100) if is_last_slide else (85, 165, 255)
+        n_col = next_hov_col if tut_next_rect.collidepoint(mouse_pos) else next_base_col
+        pygame.draw.rect(screen, n_col, tut_next_rect, border_radius=8)
+        n_text = font.render(next_label, True, white)
+        screen.blit(n_text, n_text.get_rect(center=tut_next_rect.center))
+
+    elif game_state == "RESULT":
         screen.fill(white)
 
-        #win/lose message rendering
         if game_message != "":
             if "SUCCESS" in game_message:
                 msg_surf = big_font.render(game_message, True, (30, 150, 30))
                 msg_rect = msg_surf.get_rect(center = (SCREEN_WIDTH // 2, 220))
                 screen.blit(msg_surf, msg_rect)
             else:
-                # Wrapped failure message
                 draw_wrapped_text(screen, game_message, big_font, (200, 30, 30), SCREEN_WIDTH // 2, 220, max_width=660)
 
-        #drawing reset button
         active_reset_color = reset_button_hover_color if reset_button_rect.collidepoint(mouse_pos) else reset_button_color
         pygame.draw.rect(screen, active_reset_color, reset_button_rect, border_radius = 8)
         reset_text = font.render("RESET", True, white)
@@ -269,7 +417,6 @@ while running:
     else:
         screen.blit(bg_image, (0, 0))
 
-        #drawing go button
         if game_state == "EDITING":
             active_go_color = go_button_hover_color if go_button_rect.collidepoint(mouse_pos) else go_button_color
             pygame.draw.rect(screen, active_go_color, go_button_rect, border_radius = 8)
@@ -277,17 +424,14 @@ while running:
             go_text_rect = go_text.get_rect(center = go_button_rect.center)
             screen.blit(go_text, go_text_rect)
 
-        #highlighting slots while playing
         for i, slot_x in enumerate(slots):
             slot_rect = pygame.Rect(slot_x, 510, 100, 70)
             pygame.draw.rect(screen, box_color, slot_rect, 1, 10)
 
-            #highlight current step
             if game_state == "PLAYING" and i == current_step:
                 highlight_rect = slot_rect.inflate(8, 8)
                 pygame.draw.rect(screen, (255, 230, 80), highlight_rect, 4, 12)
 
-        #drawing boxes
         for i, item in enumerate(items):
             if i == dragging_index:
                 continue
@@ -298,7 +442,6 @@ while running:
             pygame.draw.rect(screen, box_color, rect, 1, 10)
             pygame.draw.rect(screen, (100, 100, 100), rect, 1, 10)
 
-            #hover highlight for boxes
             if game_state == "EDITING" and dragging_index is None and rect.collidepoint(mouse_pos):
                 pygame.draw.rect(screen, (255, 230, 80), rect.inflate(6, 6), 3, 12)
 
@@ -306,13 +449,11 @@ while running:
             text_rect = text_surf.get_rect(center = rect.center)
             screen.blit(text_surf, text_rect)
 
-        #drawing box highlight
         if dragging_index is not None and target_slot is not None:
             slot_x = slots[target_slot]
             slot_rect = pygame.Rect(slot_x, 510, 100, 70)
             pygame.draw.rect(screen, (0, 0, 0), slot_rect, 3, 10)
 
-        #dragged box
         if dragging_index is not None:
             item = items[dragging_index]
             draw_x = mouse_pos[0] + offset_x
