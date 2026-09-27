@@ -1,6 +1,7 @@
 import os
 import sys
 import math
+import random
 import pygame
 from sys import exit
 
@@ -113,7 +114,6 @@ def draw_wrapped_text(surface, text, font_obj, color, center_x, center_y, max_wi
         rect = surf.get_rect(center=(center_x, start_y + (i * line_height) + (surf.get_height() // 2)))
         surface.blit(surf, rect)
 
-
 # drag and drop mechanic[cite: 2]
 slots = [50, 250, 450, 650]
 items = [
@@ -138,6 +138,32 @@ step_elapsed_before_pause = 0
 # game logic[cite: 2]
 winning_sequence = ["Toothbrush", "Toaster", "Shoes", "Lamp"]
 game_message = ""
+
+# lightweight confetti system
+confetti_particles = []
+CONFETTI_COLORS = [
+    (240, 90, 90),    # soft coral
+    (60, 160, 240),   # soft sky blue
+    (255, 210, 70),   # warm gold
+    (90, 200, 140),   # mint green
+    (170, 120, 220)   # gentle violet
+]
+
+def spawn_confetti(count=45):
+    global confetti_particles
+    confetti_particles = []
+    for _ in range(count):
+        confetti_particles.append({
+            "x": random.uniform(80, SCREEN_WIDTH - 80),
+            "y": random.uniform(-100, 30),
+            "vx": random.uniform(-0.8, 0.8),
+            "vy": random.uniform(1.8, 3.6),
+            "w": random.randint(7, 11),
+            "h": random.randint(4, 7),
+            "color": random.choice(CONFETTI_COLORS),
+            "sway_phase": random.uniform(0, math.pi * 2),
+            "sway_speed": random.uniform(0.04, 0.08)
+        })
 
 # title screen buttons
 start_button_rect = pygame.Rect(320, 310, 160, 48)
@@ -204,7 +230,6 @@ reset_button_rect = pygame.Rect(350, 360, 100, 50)
 reset_button_color = (200, 100, 50)
 reset_button_hover_color = (230, 125, 75)
 
-
 running = True
 while running:
     mouse_pos = pygame.mouse.get_pos()
@@ -232,13 +257,12 @@ while running:
     if game_state == "EDITING" and dragging_index is not None:
         dragged_x = mouse_pos[0] + offset_x
         dragged_center = dragged_x + 50
-        target_slot = min(range(len(slots)), key = lambda i: abs(slots[i] - dragged_center))
+        target_slot = min(range(len(slots)), key=lambda i: abs(slots[i] - dragged_center))
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
-        # toggle pause menu with spacebar from gameplay states
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
                 if game_state in ["EDITING", "PLAYING", "RESULT"]:
@@ -250,7 +274,6 @@ while running:
                     pygame.mixer.music.pause()
                     game_state = "PAUSED"
                 elif game_state == "PAUSED":
-                    # unpauses back to where you were
                     if sfx_click:
                         sfx_click.play()
                     pygame.mixer.music.unpause()
@@ -290,7 +313,7 @@ while running:
                     elif pause_menu_rect.collidepoint(event.pos):
                         if sfx_click:
                             sfx_click.play()
-                        # reset gameplay variables when returning to title
+                        confetti_particles.clear()
                         game_state = "TITLE"
                         current_step = 0
                         game_message = ""
@@ -334,9 +357,8 @@ while running:
                 elif game_state == "EDITING" and go_button_rect.collidepoint(event.pos):
                     if sfx_click:
                         sfx_click.play()
-                    sorted_items = sorted(items, key = lambda x: x["slot"])
+                    sorted_items = sorted(items, key=lambda x: x["slot"])
                     player_sequence = [item["text"] for item in sorted_items]
-                    print("Player's sequence: ", player_sequence)
 
                     game_state = "PLAYING"
                     current_step = 0
@@ -350,6 +372,7 @@ while running:
                 elif game_state == "RESULT" and reset_button_rect.collidepoint(event.pos):
                     if sfx_click:
                         sfx_click.play()
+                    confetti_particles.clear()
                     game_state = "EDITING"
                     game_message = ""
                     current_step = 0
@@ -371,7 +394,7 @@ while running:
                 dragged_x = mouse_pos[0] + offset_x
                 dragged_center = dragged_x + 50
 
-                closest_slot = min(range(len(slots)), key = lambda i: abs(slots[i] - dragged_center))
+                closest_slot = min(range(len(slots)), key=lambda i: abs(slots[i] - dragged_center))
 
                 for i, item in enumerate(items):
                     if i != dragging_index and item["slot"] == closest_slot:
@@ -403,9 +426,11 @@ while running:
                 game_state = "RESULT"
                 if player_sequence == winning_sequence:
                     game_message = "SUCCESS! You're ready for the day!"
+                    spawn_confetti(45)
                     if sfx_win:
                         sfx_win.play()
                 else:
+                    confetti_particles.clear()
                     game_message = get_failure_message(player_sequence)
                     if sfx_fail:
                         sfx_fail.play()
@@ -414,7 +439,6 @@ while running:
     if game_state == "TITLE":
         screen.blit(bg_image, (0, 0))
 
-        # dark overlay
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 140))
         screen.blit(overlay, (0, 0))
@@ -489,7 +513,6 @@ while running:
     elif game_state == "PAUSED":
         screen.blit(bg_image, (0, 0))
 
-        # dim overlay behind pause menu
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         screen.blit(overlay, (0, 0))
@@ -527,18 +550,34 @@ while running:
     elif game_state == "RESULT":
         screen.fill(white)
 
+        # update and draw falling confetti if player won
+        if confetti_particles:
+            for p in confetti_particles:
+                p["sway_phase"] += p["sway_speed"]
+                p["x"] += p["vx"] + math.sin(p["sway_phase"]) * 0.9
+                p["y"] += p["vy"]
+
+                # resets softly at top to maintain a continuous celebration
+                if p["y"] > SCREEN_HEIGHT + 15:
+                    p["y"] = random.uniform(-40, -10)
+                    p["x"] = random.uniform(80, SCREEN_WIDTH - 80)
+
+                # dynamic flutter width using horizontal scaling
+                flutter_w = max(2, int(p["w"] * abs(math.cos(p["sway_phase"]))))
+                pygame.draw.rect(screen, p["color"], (int(p["x"]), int(p["y"]), flutter_w, p["h"]), border_radius=1)
+
         if game_message != "":
             if "SUCCESS" in game_message:
                 msg_surf = big_font.render(game_message, True, (30, 150, 30))
-                msg_rect = msg_surf.get_rect(center = (SCREEN_WIDTH // 2, 220))
+                msg_rect = msg_surf.get_rect(center=(SCREEN_WIDTH // 2, 220))
                 screen.blit(msg_surf, msg_rect)
             else:
                 draw_wrapped_text(screen, game_message, big_font, (200, 30, 30), SCREEN_WIDTH // 2, 220, max_width=660)
 
         active_reset_color = reset_button_hover_color if reset_button_rect.collidepoint(mouse_pos) else reset_button_color
-        pygame.draw.rect(screen, active_reset_color, reset_button_rect, border_radius = 8)
+        pygame.draw.rect(screen, active_reset_color, reset_button_rect, border_radius=8)
         reset_text = font.render("RESET", True, white)
-        reset_text_rect = reset_text.get_rect(center = reset_button_rect.center)
+        reset_text_rect = reset_text.get_rect(center=reset_button_rect.center)
         screen.blit(reset_text, reset_text_rect)
 
     else:
@@ -546,9 +585,9 @@ while running:
 
         if game_state == "EDITING":
             active_go_color = go_button_hover_color if go_button_rect.collidepoint(mouse_pos) else go_button_color
-            pygame.draw.rect(screen, active_go_color, go_button_rect, border_radius = 8)
+            pygame.draw.rect(screen, active_go_color, go_button_rect, border_radius=8)
             go_text = font.render("GO!", True, white)
-            go_text_rect = go_text.get_rect(center = go_button_rect.center)
+            go_text_rect = go_text.get_rect(center=go_button_rect.center)
             screen.blit(go_text, go_text_rect)
 
         # animated energy beam connecting the active step to the next step
@@ -556,10 +595,8 @@ while running:
             start_pt = (slots[current_step] + 100, 545)
             end_pt = (slots[current_step + 1], 545)
 
-            # base connection line
             pygame.draw.line(screen, (80, 80, 80), start_pt, end_pt, 3)
 
-            # traveling energy pulse
             beam_dist = end_pt[0] - start_pt[0]
             pulse_x = start_pt[0] + (beam_dist * step_progress)
             pygame.draw.circle(screen, (255, 235, 90), (int(pulse_x), 545), 6)
@@ -568,7 +605,6 @@ while running:
         for i, slot_x in enumerate(slots):
             slot_rect = pygame.Rect(slot_x, 510, 100, 70)
 
-            # fills slot solid yellow when active so jumping box looks grounded
             if game_state == "PLAYING" and i == current_step:
                 pygame.draw.rect(screen, (255, 230, 80), slot_rect, border_radius=10)
                 pygame.draw.rect(screen, (220, 190, 50), slot_rect, 2, border_radius=10)
@@ -582,10 +618,11 @@ while running:
             draw_x = slots[item["slot"]]
             draw_y = 510
 
-            # adds vertical pop when item is triggered
             if game_state == "PLAYING" and item["slot"] == current_step:
-                bounce_offset = math.sin(step_progress * math.pi) * 14
-                draw_y -= int(bounce_offset)
+                if step_progress < 0.45:
+                    norm_t = step_progress/0.45
+                    bounce_offset = math.sin(norm_t*math.pi) * 6
+                    draw_y -= int(bounce_offset)
 
             rect = pygame.Rect(draw_x, draw_y, 100, 70)
 
@@ -596,13 +633,13 @@ while running:
                 pygame.draw.rect(screen, (255, 230, 80), rect.inflate(6, 6), 3, 12)
 
             text_surf = font.render(item["text"], True, dark_gray)
-            text_rect = text_surf.get_rect(center = rect.center)
+            text_rect = text_surf.get_rect(center=rect.center)
             screen.blit(text_surf, text_rect)
 
         if dragging_index is not None and target_slot is not None:
             slot_x = slots[target_slot]
             slot_rect = pygame.Rect(slot_x, 510, 100, 70)
-            pygame.draw.rect(screen, (0, 0, 0), slot_rect, 3, 10)
+            pygame.draw.rect(screen, (0, 0, 0), slot_rect, 2, 10)
 
         if dragging_index is not None:
             item = items[dragging_index]
@@ -614,7 +651,7 @@ while running:
             pygame.draw.rect(screen, (255, 230, 80), rect.inflate(6, 6), 3, 12)
 
             text_surf = font.render(item["text"], True, dark_gray)
-            text_rect = text_surf.get_rect(center = rect.center)
+            text_rect = text_surf.get_rect(center=rect.center)
             screen.blit(text_surf, text_rect)
 
     pygame.display.flip()
