@@ -231,6 +231,8 @@ winning_sequence = ["Pin Board", "Clothes Hamper", "Phone", "Cat"]
 player_sequence = []
 game_message = ""
 last_played_step = -2
+successful_attempts = 0
+unsuccessful_attempts = 0
 
 def play_step_music(step_idx):
     if 0 <= step_idx < len(player_sequence) and step_idx < len(winning_sequence):
@@ -322,7 +324,7 @@ go_button_rect = pygame.Rect(620, 270, 100, 50)
 go_button_color = (50, 200, 50)
 go_button_hover_color = (70, 230, 70)
 
-reset_button_rect = pygame.Rect(350, 360, 100, 50)
+reset_button_rect = pygame.Rect(350, 370, 100, 50)
 reset_button_color = (200, 100, 50)
 reset_button_hover_color = (230, 125, 75)
 
@@ -519,12 +521,14 @@ while running:
             if current_step >= max_steps:
                 game_state = "RESULT"
                 if player_sequence == winning_sequence:
+                    successful_attempts += 1
                     game_message = "SUCCESS! The ball bounced right into your hands and woke you up on time!"
                     spawn_confetti(45)
                     play_bgm("wakeup_credits", loop=True)
                     if sfx_win:
                         sfx_win.play()
                 else:
+                    unsuccessful_attempts += 1
                     confetti_particles.clear()
                     game_message = get_failure_message(player_sequence)
                     play_bgm("wakeup_allwrong", loop=True)
@@ -655,9 +659,14 @@ while running:
 
         if game_message != "":
             if "SUCCESS" in game_message:
-                draw_wrapped_text(screen, game_message, big_font, (30, 150, 30), SCREEN_WIDTH // 2, 220, max_width=660)
+                draw_wrapped_text(screen, game_message, big_font, (30, 150, 30), SCREEN_WIDTH // 2, 190, max_width=660)
             else:
-                draw_wrapped_text(screen, game_message, big_font, (200, 30, 30), SCREEN_WIDTH // 2, 220, max_width=660)
+                draw_wrapped_text(screen, game_message, big_font, (200, 30, 30), SCREEN_WIDTH // 2, 190, max_width=660)
+
+        stats_text = f"Successful: {successful_attempts}   |   Failed: {unsuccessful_attempts}"
+        stats_surf = font.render(stats_text, True, dark_gray)
+        stats_rect = stats_surf.get_rect(center=(SCREEN_WIDTH // 2, 300))
+        screen.blit(stats_surf, stats_rect)
 
         active_reset_color = reset_button_hover_color if reset_button_rect.collidepoint(mouse_pos) else reset_button_color
         pygame.draw.rect(screen, active_reset_color, reset_button_rect, border_radius=8)
